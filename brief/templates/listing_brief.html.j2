@@ -1,0 +1,332 @@
+{#-
+  STR Optimizer — Listing Brief email
+  Sent at signup (is_first_brief = true) and monthly thereafter.
+
+  Rules this template enforces:
+  - Every number comes from the `data` dict, computed in tested Python. The LLM only writes prose.
+  - Market analysis renders only with `market` (market-level source); pricing only with `comps` (per-date comp source). No sample rows in production.
+  - Quiet month: if quiet_month is true, the moves block collapses to one line.
+  - "What I couldn't check" always renders.
+-#}
+{%- set navy = "#144b77" -%}
+{%- set accent = "#2a78d6" -%}
+{%- set warn = "#b4602e" -%}
+{%- set tint = "#eef3f9" -%}
+{%- set tint_border = "#d6e1ee" -%}
+{%- macro section_head(num, title) -%}
+<div style="border-top:2px solid {{ navy }};padding-top:10px;font-size:11px;letter-spacing:2px;font-weight:bold;color:{{ navy }};text-transform:uppercase;">{{ num }} &middot; {{ title }}</div>
+{%- endmacro -%}
+{%- macro lede(text) -%}
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:26px;color:#222222;margin-top:10px;">{{ text }}</div>
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{ property.name }} &middot; {{ period_label }} Brief</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f5f8;">
+<div style="display:none;max-height:0;overflow:hidden;">{{ preheader }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f5f8;">
+<tr><td align="center" style="padding:24px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:8px;font-family:Helvetica,Arial,sans-serif;color:#333333;">
+
+  <!-- Brand bar -->
+  <tr><td style="padding:14px 28px;background-color:{{ navy }};border-radius:8px 8px 0 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="font-size:13px;letter-spacing:2px;font-weight:bold;color:#ffffff;text-transform:uppercase;">STR Optimizer</td>
+      <td align="right" style="font-size:12px;color:#b9c9de;">{{ period_label }}</td>
+    </tr></table>
+  </td></tr>
+
+  {% if sample_banner %}
+  <tr><td align="center" style="padding:8px 28px;background-color:#fbf1e8;font-size:12px;line-height:18px;color:{{ warn }};">{{ sample_banner }}</td></tr>
+  {% endif %}
+  <!-- Masthead -->
+  <tr><td align="center" style="padding:30px 28px 22px 28px;border-bottom:1px solid #e5e9ef;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;color:#222222;">{{ property.name }}</div>
+    <div style="width:44px;height:2px;background-color:{{ accent }};margin:14px auto;font-size:0;line-height:0;">&nbsp;</div>
+    <div style="font-size:12px;letter-spacing:3px;font-weight:bold;color:{{ accent }};text-transform:uppercase;">{% if is_first_brief %}Your first listing brief{% else %}Monthly listing brief{% endif %}</div>
+    <div style="font-size:15px;color:#7a8594;margin-top:6px;">{{ property.location }}{% if property.listing_short %} &middot; {{ property.listing_short }}{% endif %}</div>
+  </td></tr>
+
+  <!-- Greeting + headline -->
+  <tr><td style="padding:28px 28px 4px 28px;">
+    <div style="font-size:16px;line-height:24px;color:#333333;">Hi {{ customer.first_name or "there" }},</div>
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:34px;color:#1a1a1a;margin-top:14px;">{{ headline }}</div>
+    {% if is_first_brief %}
+    <div style="font-size:14px;line-height:21px;color:#666666;margin-top:12px;">This is your baseline. Next month&rsquo;s brief shows what moved since today, and only arrives if something did.</div>
+    {% endif %}
+  </td></tr>
+
+  <!-- At a glance -->
+  <tr><td style="padding:22px 28px 0 28px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:{{ tint }};border:1px solid {{ tint_border }};border-radius:10px;">
+      <tr><td colspan="3" style="padding:18px 22px 2px 22px;font-size:11px;letter-spacing:2px;font-weight:bold;color:{{ navy }};text-transform:uppercase;">At a glance</td></tr>
+      {% for row in glance|batch(2) %}
+      {% if not loop.first %}<tr><td colspan="3" style="padding:0 22px;"><div style="border-top:1px solid {{ tint_border }};font-size:0;line-height:0;">&nbsp;</div></td></tr>{% endif %}
+      <tr>
+        {% for tile in row %}
+        <td width="50%" valign="top" style="padding:12px {{ '14px 14px 22px' if loop.first else '22px 14px 14px' }};">
+          <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;color:#1a1a1a;">{{ tile.value }}</div>
+          <div style="font-size:13px;line-height:18px;color:#555555;margin-top:4px;">{{ tile.label }}</div>
+        </td>
+        {% if loop.first %}<td width="1" style="background-color:{{ tint_border }};font-size:0;line-height:0;">&nbsp;</td>{% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+
+  <!-- 01 Top 3 moves -->
+  <tr><td style="padding:34px 28px 0 28px;">
+    {{ section_head("01", "Top 3 moves this month") }}
+    {% if progress %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;background-color:#f6f8fb;border-radius:8px;">
+      <tr><td style="padding:12px 14px 4px 14px;font-size:11px;letter-spacing:1px;font-weight:bold;color:#7a8594;text-transform:uppercase;">Last month&rsquo;s moves &middot; {{ progress|selectattr("done")|list|length }} of {{ progress|length }} done</td></tr>
+      {% for p in progress %}
+      <tr><td style="padding:3px 14px {{ '12px' if loop.last else '3px' }} 14px;font-size:14px;line-height:20px;color:#333333;"><b style="color:{{ accent if p.done else '#9aa3ae' }};">{{ "&#10003;"|safe if p.done else "&#9675;"|safe }}</b>&nbsp; {{ p.text }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+    {% if quiet_month %}
+    <div style="font-size:15px;line-height:22px;color:#333333;margin-top:12px;">Quiet month. Nothing moved enough to change. Your listing is where you left it, and so is the market.</div>
+    {% else %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
+      {% for m in moves %}
+      <tr>
+        <td width="40" valign="top" style="padding:0 0 16px 0;"><div style="width:28px;height:28px;border-radius:14px;background-color:{{ navy }};color:#ffffff;font-size:14px;font-weight:bold;line-height:28px;text-align:center;">{{ loop.index }}</div></td>
+        <td valign="top" style="padding:3px 0 16px 0;">
+          <div style="font-size:16px;line-height:22px;font-weight:bold;color:#1a1a1a;">{{ m.action }}</div>
+          <div style="font-size:14px;line-height:21px;color:#666666;margin-top:3px;">{{ m.why }}</div>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </td></tr>
+
+  <!-- 02 Scorecard -->
+  <tr><td style="padding:22px 28px 0 28px;">
+    {{ section_head("02", "Scorecard") }}
+    {{ lede(scorecard.lede) }}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;font-size:14px;line-height:20px;">
+      {% for s in scorecard.subscores %}
+      {% set weak = s.score < scorecard.overall %}
+      <tr>
+        <td width="34%" style="padding:5px 0;color:#333333;">{{ s.name }}</td>
+        <td style="padding:5px 10px 5px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="background-color:#e9edf2;border-radius:4px;height:8px;font-size:0;line-height:0;">
+              {# bar scaled 4.0 -> 0%, 5.0 -> 100% so small gaps are visible #}
+              <div style="width:{{ [((s.score - 4.0) * 100)|round|int, 4]|max }}%;height:8px;border-radius:4px;background-color:{{ warn if weak else accent }};font-size:0;line-height:0;">&nbsp;</div>
+            </td>
+          </tr></table>
+        </td>
+        <td width="44" align="right" style="padding:5px 0;font-weight:bold;color:{{ warn if weak else '#1a1a1a' }};">{{ "%.1f"|format(s.score) }}</td>
+        <td width="56" align="right" style="padding:5px 0;font-size:12px;color:#7a8594;">{{ s.change or "&mdash;"|safe }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <div style="font-size:13px;line-height:19px;color:#7a8594;margin-top:8px;">{{ scorecard.footnote }}</div>
+    {% if scorecard.math %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;background-color:#f6f8fb;border-left:3px solid {{ accent }};">
+      <tr><td style="padding:12px 14px;font-size:14px;line-height:21px;color:#333333;">
+        {% for line in scorecard.math %}<div{% if not loop.first %} style="margin-top:6px;"{% endif %}>{{ line|safe }}</div>{% endfor %}
+      </td></tr>
+    </table>
+    {% endif %}
+  </td></tr>
+
+  {% set ns = namespace(i=2) %}
+  {% if market %}
+  {% set ns.i = ns.i + 1 %}
+  <!-- Market analysis (market-level data source required) -->
+  <tr><td style="padding:30px 28px 0 28px;">
+    {{ section_head("%02d"|format(ns.i), "Market analysis") }}
+    {{ lede(market.lede) }}
+
+    <!-- Season strip -->
+    <div style="font-size:11px;letter-spacing:1px;font-weight:bold;color:#7a8594;text-transform:uppercase;margin-top:16px;">{{ market.area }} season</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;table-layout:fixed;">
+      <tr>
+        {% for m in market.season %}
+        {% set bg = navy if m.level == 'peak' else ('#9db6d3' if m.level == 'shoulder' else '#e4e9ef') %}
+        <td align="center" style="padding:0 1px;">
+          <div style="height:{{ 34 if m.level == 'peak' else (24 if m.level == 'shoulder' else 14) }}px;background-color:{{ bg }};border-radius:3px 3px 0 0;font-size:0;line-height:0;margin-top:{{ 0 if m.level == 'peak' else (10 if m.level == 'shoulder' else 20) }}px;{% if m.now %}outline:2px solid {{ warn }};{% endif %}">&nbsp;</div>
+          <div style="font-size:11px;line-height:16px;margin-top:4px;color:{{ warn if m.now else '#7a8594' }};{% if m.now %}font-weight:bold;{% endif %}">{{ m.name }}</div>
+        </td>
+        {% endfor %}
+      </tr>
+    </table>
+    <div style="font-size:12px;line-height:18px;color:#7a8594;margin-top:6px;">
+      <span style="display:inline-block;width:9px;height:9px;background-color:{{ navy }};border-radius:2px;"></span> Peak &nbsp;
+      <span style="display:inline-block;width:9px;height:9px;background-color:#9db6d3;border-radius:2px;"></span> Shoulder &nbsp;
+      <span style="display:inline-block;width:9px;height:9px;background-color:#e4e9ef;border:1px solid #cfd7e1;border-radius:2px;"></span> Slow &nbsp;
+      <b style="color:{{ warn }};">{{ market.now_label }}</b>
+    </div>
+
+    <!-- Market vs your cohort -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;border-collapse:collapse;font-size:14px;line-height:20px;">
+      <tr>
+        <td style="padding:8px 8px 8px 0;font-size:11px;letter-spacing:1px;font-weight:bold;color:#7a8594;text-transform:uppercase;border-bottom:1px solid {{ tint_border }};">&nbsp;</td>
+        {% for c in market.columns %}
+        <td align="right" style="padding:8px {{ '0' if loop.last else '8px' }} 8px 8px;font-size:11px;letter-spacing:1px;font-weight:bold;color:#7a8594;text-transform:uppercase;border-bottom:1px solid {{ tint_border }};">{{ c }}</td>
+        {% endfor %}
+      </tr>
+      {% for r in market.rows %}
+      <tr>
+        <td style="padding:10px 8px 10px 0;border-bottom:1px solid #eef1f5;color:#333333;">{{ r.label }}</td>
+        {% for v in r["values"] %}
+        <td align="right" style="padding:10px {{ '0' if loop.last else '8px' }} 10px 8px;border-bottom:1px solid #eef1f5;color:#1a1a1a;{% if loop.last %}font-weight:bold;{% endif %}">{{ v }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+
+    <!-- Key findings -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;font-size:15px;line-height:22px;">
+      {% for f in market.findings %}
+      <tr>
+        <td width="18" valign="top" style="padding:9px 0 0 0;"><div style="width:8px;height:8px;border-radius:4px;background-color:{{ accent }};font-size:0;line-height:0;">&nbsp;</div></td>
+        <td valign="top" style="padding:3px 0 9px 0;color:#333333;">{{ f|safe }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    {% if market.coming_up %}
+    <div style="font-size:11px;letter-spacing:1px;font-weight:bold;color:#7a8594;text-transform:uppercase;margin-top:12px;">Coming up</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:6px;font-size:14px;line-height:20px;">
+      {% for e in market.coming_up %}
+      <tr>
+        <td width="96" valign="top" style="padding:5px 8px 5px 0;font-weight:bold;color:{{ navy }};">{{ e.when }}</td>
+        <td valign="top" style="padding:5px 0;color:#333333;">{{ e.what }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;background-color:{{ tint }};border-left:3px solid {{ navy }};">
+      <tr><td style="padding:12px 14px;font-size:14px;line-height:21px;color:#1a1a1a;"><b style="color:{{ navy }};">What this means for you:</b> {{ market.so_what }}</td></tr>
+    </table>
+    <div style="font-size:12px;line-height:18px;color:#7a8594;margin-top:8px;">{{ market.source_note }}</div>
+  </td></tr>
+  {% endif %}
+
+  {% if comps %}
+  {% set ns.i = ns.i + 1 %}
+  <!-- Pricing vs comps (per-date comp data required) -->
+  <tr><td style="padding:30px 28px 0 28px;">
+    {{ section_head("%02d"|format(ns.i), "Pricing, next 60 days") }}
+    {{ lede(pricing.lede) }}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;border-collapse:collapse;font-size:14px;line-height:20px;">
+      <tr>
+        {% for h, a in [("Dates","left"),("You","right"),("Comps","right"),("Do this","right")] %}
+        <td align="{{ a }}" style="padding:8px {{ '0' if loop.last else '8px' }} 8px {{ '0' if loop.first else '8px' }};font-size:11px;letter-spacing:1px;font-weight:bold;color:#7a8594;text-transform:uppercase;border-bottom:1px solid {{ tint_border }};">{{ h }}</td>
+        {% endfor %}
+      </tr>
+      {% for r in pricing.rows %}
+      <tr>
+        <td style="padding:10px 8px 10px 0;border-bottom:1px solid #eef1f5;color:#1a1a1a;">{{ r.dates }}</td>
+        <td align="right" style="padding:10px 8px;border-bottom:1px solid #eef1f5;color:#1a1a1a;">{{ r.yours }}</td>
+        <td align="right" style="padding:10px 8px;border-bottom:1px solid #eef1f5;color:#7a8594;">{{ r.comps }}</td>
+        <td align="right" style="padding:10px 0 10px 8px;border-bottom:1px solid #eef1f5;font-weight:bold;color:{{ warn if r.direction == 'down' else accent }};">{{ r.action }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <div style="font-size:13px;line-height:19px;color:#7a8594;margin-top:8px;">{{ pricing.footnote }}</div>
+  </td></tr>
+  {% endif %}
+
+  {% if checks %}
+  {% set ns.i = ns.i + 1 %}
+  <!-- Listing settings check (public listing page) -->
+  <tr><td style="padding:30px 28px 0 28px;">
+    {{ section_head("%02d"|format(ns.i), "Listing checkup") }}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;font-size:14px;line-height:20px;">
+      {% for c in checks %}
+      <tr>
+        <td width="26" valign="top" style="padding:8px 0;font-size:15px;font-weight:bold;color:{{ accent if c.ok else warn }};">{{ "&#10003;"|safe if c.ok else "!" }}</td>
+        <td valign="top" style="padding:8px 8px 8px 0;border-bottom:1px solid #eef1f5;color:#1a1a1a;"><b>{{ c.item }}</b><div style="color:#666666;margin-top:2px;">{{ c.note }}</div></td>
+      </tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+  {% endif %}
+
+  <!-- Guest feedback -->
+  <tr><td style="padding:30px 28px 0 28px;">
+    {% set ns.i = ns.i + 1 %}{{ section_head("%02d"|format(ns.i), "What guests talk about") }}
+    {{ lede(feedback.lede) }}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;font-size:14px;line-height:20px;">
+      {% set top = feedback.themes[0].count %}
+      {% for t in feedback.themes %}
+      <tr>
+        <td width="30%" style="padding:4px 0;color:#333333;">{{ t.name }}</td>
+        <td style="padding:4px 10px 4px 0;">
+          <div style="width:{{ [(t.count / top * 100)|round|int, 3]|max }}%;height:8px;border-radius:4px;background-color:{{ accent }};font-size:0;line-height:0;">&nbsp;</div>
+        </td>
+        <td width="40" align="right" style="padding:4px 0;color:#1a1a1a;font-weight:bold;">{{ t.count }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <div style="font-size:13px;line-height:19px;color:#7a8594;margin-top:6px;">{{ feedback.footnote }}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;font-size:15px;line-height:22px;">
+      {% for item in feedback.notes %}
+      <tr>
+        <td width="18" valign="top" style="padding:9px 0 0 0;"><div style="width:8px;height:8px;border-radius:4px;background-color:{{ warn if item.kind == 'Fix' else accent }};font-size:0;line-height:0;">&nbsp;</div></td>
+        <td valign="top" style="padding:3px 0 9px 0;color:#333333;"><b style="color:{{ warn if item.kind == 'Fix' else accent }};">{{ item.kind }}</b> &nbsp;{{ item.text }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+
+  {% if paste %}
+  <!-- Ready to paste -->
+  <tr><td style="padding:30px 28px 0 28px;">
+    {% set ns.i = ns.i + 1 %}{{ section_head("%02d"|format(ns.i), "Ready to paste") }}
+    <div style="font-size:14px;line-height:21px;color:#7a8594;margin-top:8px;">Copy, paste into your listing editor, done.</div>
+    {% for p in paste %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;border:1px solid #e5e9ef;border-radius:8px;">
+      <tr><td style="padding:12px 14px 0 14px;">
+        <span style="display:inline-block;font-size:11px;letter-spacing:1px;font-weight:bold;color:#ffffff;background-color:{{ warn if p.tag == 'Instagram' else navy }};border-radius:3px;padding:2px 7px;text-transform:uppercase;">{{ p.tag }}</span>
+        <span style="font-size:14px;font-weight:bold;color:#1a1a1a;padding-left:6px;">{{ p.title }}</span>
+      </td></tr>
+      <tr><td style="padding:4px 14px 0 14px;font-size:13px;line-height:19px;color:#7a8594;">{{ p.why }}</td></tr>
+      <tr><td style="padding:8px 14px 14px 14px;">
+        <div style="font-size:15px;line-height:23px;color:#1a1a1a;background-color:#f6f8fb;border-radius:6px;padding:10px 12px;">{{ p.text }}</div>
+      </td></tr>
+    </table>
+    {% endfor %}
+  </td></tr>
+  {% endif %}
+
+  <!-- What I couldn't check: always renders -->
+  <tr><td style="padding:30px 28px 0 28px;">
+    <div style="border-top:1px solid #e5e9ef;padding-top:10px;font-size:11px;letter-spacing:2px;font-weight:bold;color:#7a8594;text-transform:uppercase;">{{ "%02d"|format(ns.i + 1) }} &middot; What this brief couldn&rsquo;t check</div>
+    {% for c in cant_check %}
+    <div style="font-size:13px;line-height:20px;color:#7a8594;margin-top:8px;">{{ c }}</div>
+    {% endfor %}
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="padding:26px 28px 28px 28px;">
+    <div style="border-top:1px solid #e5e9ef;padding-top:14px;font-size:12px;line-height:18px;color:#9aa3ae;">
+      <b style="color:#7a8594;">Sources:</b> {% for s in sources %}{% if s.url %}<a href="{{ s.url }}" style="color:{{ accent }};">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}{% if not loop.last %} &middot; {% endif %}{% endfor %}
+      <div style="margin-top:10px;">Recommendations only. Nothing on your listing, calendar or pricing was changed.</div>
+      <div style="margin-top:10px;">
+        <a href="https://billing.stripe.com/p/login/bJe8wR0Kg8VA9YpfJ44ow00?prefilled_email={{ customer.email|urlencode }}" style="color:{{ accent }};">Manage subscription</a> &middot;
+        <a href="{{ unsubscribe_url }}" style="color:{{ accent }};">Unsubscribe</a> &middot;
+        <a href="mailto:support@optimizemystr.com" style="color:{{ accent }};">support@optimizemystr.com</a>
+      </div>
+      <div style="margin-top:10px;">STR Optimizer &middot; optimizemystr.com<br>Not affiliated with or endorsed by Airbnb.</div>
+    </div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

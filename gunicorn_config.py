@@ -8,7 +8,7 @@ backlog = 2048
 workers = 1  # Start with 1 worker for Eco/Basic dynos
 worker_class = "sync"
 worker_connections = 1000
-timeout = 120  # Increased timeout for PDF generation
+timeout = 30
 keepalive = 2
 
 # Restart workers after this many requests, to help prevent memory leaks
@@ -25,7 +25,7 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 proc_name = "str-optimizer-backend"
 
 # Server mechanics
-preload_app = True
+preload_app = False  # each worker opens its own DB pool
 daemon = False
 pidfile = "/tmp/gunicorn.pid"
 user = None
